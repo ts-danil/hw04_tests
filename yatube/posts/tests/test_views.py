@@ -23,13 +23,18 @@ class PostsPagesTests(TestCase):
             author=cls.author,
             text='Тестовый текст поста'
         )
-        for i in range(12):
-            Post.objects.create(
-                author=cls.author,
-                group=cls.group,
-                text=f'Тестовый пост #{i} в группе "{cls.group.title}"'
-            )
+        cls.posts_num = 12
         cls.post_per_page = 10
+        posts = []
+        for post_num in range(cls.posts_num):
+            posts.append(
+                Post(
+                    text=f'{str(post_num)*100}',
+                    author=cls.author,
+                    group=cls.group
+                )
+            )
+        Post.objects.bulk_create(posts)
 
     def setUp(self):
         # Гостевой клиент

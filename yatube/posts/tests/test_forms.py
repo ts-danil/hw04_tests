@@ -17,12 +17,6 @@ class PostFormTests(TestCase):
             slug='test-slug',
             description='Описание тестовой группы №1'
         )
-        for i in range(12):
-            Post.objects.create(
-                author=cls.author,
-                group=cls.group,
-                text=f'пост #{i} в группе "{cls.group.title}"'
-            )
 
     def setUp(self):
         self.author_client = Client()
@@ -42,6 +36,9 @@ class PostFormTests(TestCase):
         )
         posts_count_after = Post.objects.count()
         self.assertEqual(posts_count_before + 1, posts_count_after)
+        self.assertTrue(Post.objects.filter(
+                        text=form_data['text'],
+                        group=form_data['group']).exists())
 
     def test_post_edit_changes_item_in_database(self):
         """ Проверка редактирования существующих постов из формы """
@@ -61,4 +58,5 @@ class PostFormTests(TestCase):
         )
         self.assertTrue(Post.objects.filter(
                         id=post.id,
-                        text='Новый текст из формы').exists())
+                        group=form_data['group'],
+                        text=form_data['text']).exists())
