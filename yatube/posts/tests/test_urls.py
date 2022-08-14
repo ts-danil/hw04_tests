@@ -61,7 +61,7 @@ class StaticURLTests(TestCase):
                             HTTPStatus.OK
                             ),
                            (f'/posts/{self.post.id}/edit/',
-                            self.author_client, 
+                            self.author_client,
                             HTTPStatus.OK))
         for item in url_client_code:
             response = item[1].get(item[0])
