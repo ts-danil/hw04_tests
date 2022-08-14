@@ -1,8 +1,7 @@
-# posts/tests/test_urls.py
-from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
 from http import HTTPStatus
 
+from django.contrib.auth import get_user_model
+from django.test import Client, TestCase
 from posts.models import Group, Post
 
 User = get_user_model()
@@ -36,37 +35,38 @@ class StaticURLTests(TestCase):
 
     def test_all_page_exists(self):
         """Проверка корректности кодов ответа для всех страниц"""
-        url_client_code = (('/',
-                            self.guest_client,
-                            HTTPStatus.OK
-                            ),
-                           ('/unexisting_page/',
-                            self.guest_client,
-                            HTTPStatus.NOT_FOUND
-                            ),
-                           (f'/group/{self.group.slug}/',
-                            self.guest_client,
-                            HTTPStatus.OK
-                            ),
-                           (f'/profile/{self.author.username}/',
-                            self.guest_client,
-                            HTTPStatus.OK
-                            ),
-                           (f'/posts/{self.post.id}/',
-                            self.guest_client,
-                            HTTPStatus.OK
-                            ),
-                           ('/create/',
-                            self.authorized_client,
-                            HTTPStatus.OK
-                            ),
-                           (f'/posts/{self.post.id}/edit/',
-                            self.author_client,
-                            HTTPStatus.OK))
-        for item in url_client_code:
-            response = item[1].get(item[0])
-            with self.subTest():
-                self.assertEqual(response.status_code, item[2])
+        url_client_status = (('/',
+                             self.guest_client,
+                             HTTPStatus.OK
+                              ),
+                             ('/unexisting_page/',
+                             self.guest_client,
+                             HTTPStatus.NOT_FOUND
+                              ),
+                             (f'/group/{self.group.slug}/',
+                              self.guest_client,
+                              HTTPStatus.OK
+                              ),
+                             (f'/profile/{self.author.username}/',
+                              self.guest_client,
+                              HTTPStatus.OK
+                              ),
+                             (f'/posts/{self.post.id}/',
+                              self.guest_client,
+                              HTTPStatus.OK
+                              ),
+                             ('/create/',
+                              self.authorized_client,
+                              HTTPStatus.OK
+                              ),
+                             (f'/posts/{self.post.id}/edit/',
+                              self.author_client,
+                              HTTPStatus.OK))
+
+        for url, client, status in url_client_status:
+            response = client.get(url)
+            with self.subTest(status=status):
+                self.assertEqual(response.status_code, status)
 
     def test_create_redirect_from_guest_client(self):
         """Страница создания поста перенаправляет на страницу входа

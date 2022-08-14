@@ -2,7 +2,6 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
-
 from posts.models import Group, Post
 
 User = get_user_model()
@@ -21,20 +20,11 @@ class PostsPagesTests(TestCase):
         )
         cls.post = Post.objects.create(
             author=cls.author,
+            group=cls.group,
             text='Тестовый текст поста'
         )
         cls.posts_num = 12
         cls.post_per_page = 10
-        posts = []
-        for post_num in range(cls.posts_num):
-            posts.append(
-                Post(
-                    text=f'{str(post_num)*100}',
-                    author=cls.author,
-                    group=cls.group
-                )
-            )
-        Post.objects.bulk_create(posts)
 
     def setUp(self):
         # Гостевой клиент
@@ -78,7 +68,7 @@ class PostsPagesTests(TestCase):
         # На главной находятся необходимые посты
         self.assertEqual(posts, page_obj_context)
         # Проверка паджинатора по количеству постов
-        self.assertEqual(len(page_obj_context), self.post_per_page)
+        # self.assertEqual(len(page_obj_context), self.post_per_page)
 
     def test_group_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
@@ -93,7 +83,7 @@ class PostsPagesTests(TestCase):
         # В группе находятся необходимые посты
         self.assertEqual(page_obj_context, page_obj)
         # Проверка паджинатора по количеству постов
-        self.assertEqual(len(page_obj_context), self.post_per_page)
+        # self.assertEqual(len(page_obj_context), self.post_per_page)
 
     def test_profile_show_correct_context(self):
         """Шаблон profile сформирован с правильным контекстом."""
@@ -112,7 +102,7 @@ class PostsPagesTests(TestCase):
         # Проверка количества постов у автора
         self.assertEqual(posts_count_context, posts_count)
         # Проверка паджинатора по количеству постов
-        self.assertEqual(len(page_obj_context), self.post_per_page)
+        # self.assertEqual(len(page_obj_context), self.post_per_page)
 
     def test_post_detail_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
@@ -181,3 +171,26 @@ class PostsPagesTests(TestCase):
                                          kwargs={'slug': self.group.slug}))
         page_obj_context = response.context['page_obj'].object_list
         self.assertNotIn(test_post, page_obj_context)
+
+    def test_paginator(self):
+        """Тестирование пагинатора"""
+        posts = []
+        for post_num in range(self.posts_num):
+            posts.append(
+                Post(
+                    text=f'Пост № {post_num}',
+                    author=self.author,
+                    group=self.group
+                )
+            )
+        Post.objects.bulk_create(posts)
+        urls_with_paginator = ('/',
+                               f'/group/{self.group.slug}/',
+                               f'/profile/{self.author.username}/')
+        page_posts = ((1, 10), (2, 3))
+        for url_address in urls_with_paginator:
+            for page, posts_count in page_posts:
+                response = self.guest_client.get(url_address, {"page": page})
+                page_obj_context = response.context['page_obj'].object_list
+                with self.subTest():
+                    self.assertEqual(len(page_obj_context), posts_count)
