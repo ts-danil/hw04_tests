@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+
 from posts.models import Group, Post
 
 User = get_user_model()
@@ -68,27 +69,27 @@ class StaticURLTests(TestCase):
             with self.subTest(status=status):
                 self.assertEqual(response.status_code, status)
 
-    def test_create_redirect_from_guest_client(self):
-        """Страница создания поста перенаправляет на страницу входа
-        с гостевого клиента"""
-        response = self.guest_client.get('/create/')
-        self.assertRedirects(response, '/auth/login/')
-
-    def test_post_edit_redirect_from_guest_client(self):
-        """Страница редактирования поста перенаправляет на страницу поста
-        с гостевого клиента"""
-        response = self.guest_client.get(f'/posts/{self.post.id}/edit/')
-        self.assertRedirects(response, f'/posts/{self.post.id}/')
-
-    def test_post_edit_redirect_from_authorized_client(self):
-        """Страница редактирования поста перенаправляет на страницу поста
-        с авторизованного клиента"""
-        response = self.authorized_client.get(f'/posts/{self.post.id}/edit/')
-        self.assertRedirects(response, f'/posts/{self.post.id}/')
+    def test_page_with_redirect(self):
+        """Тестирование перенаправления"""
+        url_client_redirect = (('/create/',
+                                self.guest_client,
+                                '/auth/login/'
+                                ),
+                               (f'/posts/{self.post.id}/edit/',
+                                self.guest_client,
+                                f'/posts/{self.post.id}/'
+                                ),
+                               (f'/posts/{self.post.id}/edit/',
+                                self.authorized_client,
+                                f'/posts/{self.post.id}/'
+                                ))
+        for url, client, redirect in url_client_redirect:
+            response = client.get(url)
+            with self.subTest(redirect=redirect):
+                self.assertRedirects(response, redirect)
 
     def test_urls_uses_correct_template(self):
         """URL-адреса используют соответствующие шаблоны"""
-        # Общедоступные адреса
         url_names_templates = {
             '/': 'posts/index.html',
             f'/group/{self.group.slug}/': 'posts/group_list.html',
@@ -99,7 +100,6 @@ class StaticURLTests(TestCase):
             with self.subTest(adress=address):
                 response = self.guest_client.get(address)
                 self.assertTemplateUsed(response, template)
-        # Адреса ограниченного доступа
         response = self.authorized_client.get('/create/')
         self.assertTemplateUsed(response, 'posts/create_post.html')
         response = self.author_client.get(f'/posts/{self.post.id}/edit/')
