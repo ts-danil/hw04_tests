@@ -7,7 +7,7 @@ from django.views.decorators.cache import cache_page
 from django.views.generic.edit import CreateView
 
 from .forms import CommentForm, PostForm
-from .models import Group, Post, User
+from .models import Follow, Group, Post, User
 
 
 @cache_page(20, key_prefix='index_page')
@@ -16,8 +16,7 @@ def index(request):
     paginator = Paginator(posts, settings.POST_PER_PAGE)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    context = {
-        'page_obj': page_obj}
+    context = {'page_obj': page_obj}
     return render(request, 'posts/index.html', context)
 
 
@@ -37,12 +36,17 @@ def group_posts(request, slug):
 def profile(request, username):
     author = get_object_or_404(User, username=username)
     posts = author.posts.select_related('author').all()
+    following = False
+    if request.user.is_authenticated:
+        following = Follow.objects.filter(user=request.user.username,
+                                          author=username).exists()
     paginator = Paginator(posts, settings.POST_PER_PAGE)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     context = {
         'author': author,
         'posts_count': posts.count(),
+        'following': following,
         'page_obj': page_obj}
     return render(request, 'posts/profile.html', context)
 
@@ -111,3 +115,34 @@ def add_comment(request, post_id):
         comment.post = post
         comment.save()
     return redirect('posts:post_detail', post_id=post_id)
+
+
+@login_required
+def follow_index(request):
+    if not request.user.is_authenticated:
+        return redirect('users:login')
+    following = Follow.author.filter(user=request.user.username)
+    posts = []
+    for author in following:
+        posts += author.posts.select_related('author').all()
+    paginator = Paginator(posts, settings.POST_PER_PAGE)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    context = {'page_obj': page_obj}
+    return render(request, 'posts/follow.html', context)
+
+
+@login_required
+def profile_follow(request, username):
+    # Подписаться на автора
+    if not request.user.is_authenticated:
+        return redirect('users:login')
+    Follow.objects.create(user=request.user.username,
+                          author=username)
+
+
+@login_required
+def profile_unfollow(request, username):
+    # Дизлайк, отписка
+    Follow.objects.filter(user=request.user.username,
+                          author=username).delete()

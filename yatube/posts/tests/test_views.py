@@ -182,7 +182,7 @@ class PostsPagesTests(TestCase):
                     self.assertEqual(len(page_obj_context), posts_count)
 
     def test_post_with_image(self):
-        """Добавление поста с изображением"""
+        """Изображение передается в словаре context"""
         small_gif = (b'\x47\x49\x46\x38\x39\x61\x02\x00'
                      b'\x01\x00\x80\x00\x00\x00\x00\x00'
                      b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'

@@ -1,13 +1,19 @@
+import shutil
+import tempfile
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from posts.models import Group, Post
 
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 User = get_user_model()
 
 
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostFormTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -18,6 +24,11 @@ class PostFormTests(TestCase):
             slug='test-slug',
             description='Описание тестовой группы №1'
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
         self.author_client = Client()
@@ -80,8 +91,7 @@ class PostFormTests(TestCase):
         self.author_client.post(reverse('posts:post_create'),
                                 data=form_data,
                                 follow=True)
-        posts_count_after = Post.objects.count()
-        self.assertEqual(posts_count_before + 1, posts_count_after)
+        self.assertEqual(posts_count_before + 1, Post.objects.count())
         self.assertTrue(Post.objects.filter(text=form_data['text'],
                                             group=form_data['group'],
                                             image='posts/small.jpg').exists())
