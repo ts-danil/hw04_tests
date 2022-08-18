@@ -1,5 +1,7 @@
-# posts/tests/test_urls.py
+from http import HTTPStatus
+
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client, TestCase
 
 from posts.models import Group, Post
@@ -24,73 +26,72 @@ class StaticURLTests(TestCase):
         )
 
     def setUp(self):
-        # Гостевой клиент
         self.guest_client = Client()
-        # Авторизованный клиент
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
-        # Авторский клиент
         self.author_client = Client()
         self.author_client.force_login(self.author)
+        cache.clear()
 
-    def test_homepage_exists_from_guest_client(self):
-        """Главная страница доступна с гостевого клиента"""
-        response = self.guest_client.get('/')
-        self.assertEqual(response.status_code, 200)
+    def test_all_page_exists(self):
+        """Проверка корректности кодов ответа для всех страниц"""
+        url_client_status = (('/',
+                             self.guest_client,
+                             HTTPStatus.OK
+                              ),
+                             ('/unexisting_page/',
+                             self.guest_client,
+                             HTTPStatus.NOT_FOUND
+                              ),
+                             (f'/group/{self.group.slug}/',
+                              self.guest_client,
+                              HTTPStatus.OK
+                              ),
+                             (f'/profile/{self.author.username}/',
+                              self.guest_client,
+                              HTTPStatus.OK
+                              ),
+                             (f'/posts/{self.post.id}/',
+                              self.guest_client,
+                              HTTPStatus.OK
+                              ),
+                             ('/create/',
+                              self.authorized_client,
+                              HTTPStatus.OK
+                              ),
+                             (f'/posts/{self.post.id}/edit/',
+                              self.author_client,
+                              HTTPStatus.OK))
 
-    def test_unexisting_page_404_status_from_guest_client(self):
-        """Несуществующая страница вернет ошибку 404 с гостевого клиента"""
-        response = self.guest_client.get('/unexisting_page/')
-        self.assertEqual(response.status_code, 404)
+        for url, client, status in url_client_status:
+            response = client.get(url)
+            with self.subTest(status=status):
+                self.assertEqual(response.status_code, status)
 
-    def test_group_exists_from_guest_client(self):
-        """Страница группы доступна с гостевого клиента"""
-        response = self.guest_client.get(f'/group/{self.group.slug}/')
-        self.assertEqual(response.status_code, 200)
-
-    def test_profile_exists_from_guest_client(self):
-        """Страница автора доступна с гостевого клиента"""
-        response = self.guest_client.get(f'/profile/{self.author.username}/')
-        self.assertEqual(response.status_code, 200)
-
-    def test_post_view_exists_from_guest_client(self):
-        """Страница поста доступна с гостевого клиента"""
-        response = self.guest_client.get(f'/posts/{self.post.id}/')
-        self.assertEqual(response.status_code, 200)
-
-    def test_create_exists_from_authorized_client(self):
-        """Страница создания поста доступна с авторизованного клиента"""
-        response = self.authorized_client.get('/create/')
-        self.assertEqual(response.status_code, 200)
-
-    def test_create_redirect_from_guest_client(self):
-        """Страница создания поста перенаправляет на страницу входа
-        с гостевого клиента"""
-        response = self.guest_client.get('/create/')
-        self.assertRedirects(response, '/auth/login/')
-
-    def test_post_edit_exists_from_author_client(self):
-        """Страница редактирования поста доступна с авторского"""
-        response = self.author_client.get(f'/posts/{self.post.id}/edit/')
-        self.assertEqual(response.status_code, 200)
-
-    def test_post_edit_redirect_from_guest_client(self):
-        """Страница редактирования поста перенаправляет на страницу поста
-        с гостевого клиента"""
-        response = self.guest_client.get(f'/posts/{self.post.id}/edit/')
-        self.assertRedirects(response, f'/posts/{self.post.id}/')
-
-    def test_post_edit_redirect_from_authorized_client(self):
-        """Страница редактирования поста перенаправляет на страницу поста
-        с авторизованного клиента"""
-        response = self.authorized_client.get(f'/posts/{self.post.id}/edit/')
-        self.assertRedirects(response, f'/posts/{self.post.id}/')
+    def test_page_with_redirect(self):
+        """Тестирование перенаправления"""
+        url_client_redirect = (('/create/',
+                                self.guest_client,
+                                '/auth/login/'
+                                ),
+                               (f'/posts/{self.post.id}/edit/',
+                                self.guest_client,
+                                f'/posts/{self.post.id}/'
+                                ),
+                               (f'/posts/{self.post.id}/edit/',
+                                self.authorized_client,
+                                f'/posts/{self.post.id}/'
+                                ))
+        for url, client, redirect in url_client_redirect:
+            response = client.get(url)
+            with self.subTest(redirect=redirect):
+                self.assertRedirects(response, redirect)
 
     def test_urls_uses_correct_template(self):
         """URL-адреса используют соответствующие шаблоны"""
-        # Общедоступные адреса
         url_names_templates = {
             '/': 'posts/index.html',
+            '/nonexist-page/': 'core/404.html',
             f'/group/{self.group.slug}/': 'posts/group_list.html',
             f'/profile/{self.author.username}/': 'posts/profile.html',
             f'/posts/{self.post.id}/': 'posts/post_detail.html',
@@ -99,7 +100,6 @@ class StaticURLTests(TestCase):
             with self.subTest(adress=address):
                 response = self.guest_client.get(address)
                 self.assertTemplateUsed(response, template)
-        # Адреса ограниченного доступа
         response = self.authorized_client.get('/create/')
         self.assertTemplateUsed(response, 'posts/create_post.html')
         response = self.author_client.get(f'/posts/{self.post.id}/edit/')

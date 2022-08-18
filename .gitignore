@@ -144,3 +144,7 @@ dmypy.json
 .history/
 
 .mypy_cache
+
+
+# Пользовательские папки
+media/

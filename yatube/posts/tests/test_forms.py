@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -17,12 +18,6 @@ class PostFormTests(TestCase):
             slug='test-slug',
             description='Описание тестовой группы №1'
         )
-        for i in range(12):
-            Post.objects.create(
-                author=cls.author,
-                group=cls.group,
-                text=f'пост #{i} в группе "{cls.group.title}"'
-            )
 
     def setUp(self):
         self.author_client = Client()
@@ -42,6 +37,9 @@ class PostFormTests(TestCase):
         )
         posts_count_after = Post.objects.count()
         self.assertEqual(posts_count_before + 1, posts_count_after)
+        self.assertTrue(Post.objects.filter(
+                        text=form_data['text'],
+                        group=form_data['group']).exists())
 
     def test_post_edit_changes_item_in_database(self):
         """ Проверка редактирования существующих постов из формы """
@@ -61,4 +59,29 @@ class PostFormTests(TestCase):
         )
         self.assertTrue(Post.objects.filter(
                         id=post.id,
-                        text='Новый текст из формы').exists())
+                        group=form_data['group'],
+                        text=form_data['text']).exists())
+
+    def test_post_with_img_create_adds_item_in_database(self):
+        """ Проверка сохранения новых постов с изображением из формы """
+        posts_count_before = Post.objects.count()
+        small_img = (b'\x47\x49\x46\x38\x39\x61\x02\x00'
+                     b'\x01\x00\x80\x00\x00\x00\x00\x00'
+                     b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+                     b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+                     b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+                     b'\x0A\x00\x3B')
+        uploaded = SimpleUploadedFile(name='small.jpg',
+                                      content=small_img,
+                                      content_type='image/jpg')
+        form_data = {'text': 'Текст из формы',
+                     'group': self.group.id,
+                     'image': uploaded}
+        self.author_client.post(reverse('posts:post_create'),
+                                data=form_data,
+                                follow=True)
+        posts_count_after = Post.objects.count()
+        self.assertEqual(posts_count_before + 1, posts_count_after)
+        self.assertTrue(Post.objects.filter(text=form_data['text'],
+                                            group=form_data['group'],
+                                            image='posts/small.jpg').exists())
